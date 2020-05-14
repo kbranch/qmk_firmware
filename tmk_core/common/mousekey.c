@@ -36,6 +36,7 @@ static void           mousekey_debug(void);
 static uint8_t        mousekey_accel  = 0;
 static uint8_t        mousekey_repeat = 0;
 static uint16_t       last_timer      = 0;
+static uint8_t        wheelDelayCounter = 0;
 
 #ifndef MK_3_SPEED
 
@@ -79,6 +80,7 @@ static uint8_t move_unit(void) {
 
 static uint8_t wheel_unit(void) {
     uint16_t unit;
+
     if (mousekey_accel & (1 << 0)) {
         unit = (MOUSEKEY_WHEEL_DELTA * mk_wheel_max_speed) / 4;
     } else if (mousekey_accel & (1 << 1)) {
@@ -92,6 +94,7 @@ static uint8_t wheel_unit(void) {
     } else {
         unit = (MOUSEKEY_WHEEL_DELTA * mk_wheel_max_speed * mousekey_repeat) / mk_wheel_time_to_max;
     }
+
     return (unit > MOUSEKEY_WHEEL_MAX ? MOUSEKEY_WHEEL_MAX : (unit == 0 ? 1 : unit));
 }
 
@@ -122,7 +125,22 @@ void mousekey_task(void) {
     if (mouse_report.v < 0) mouse_report.v = wheel_unit() * -1;
     if (mouse_report.h > 0) mouse_report.h = wheel_unit();
     if (mouse_report.h < 0) mouse_report.h = wheel_unit() * -1;
+
+    uint8_t originalV = mouse_report.v;
+    uint8_t originalH = mouse_report.h;
+    
+    if(wheelDelayCounter % 5 != 0)
+    {
+        mouse_report.v = 0;
+	mouse_report.h = 0;
+    }
+
     mousekey_send();
+
+    wheelDelayCounter++;
+
+    mouse_report.v = originalV;
+    mouse_report.h = originalH;
 }
 
 void mousekey_on(uint8_t code) {
@@ -135,13 +153,25 @@ void mousekey_on(uint8_t code) {
     else if (code == KC_MS_RIGHT)
         mouse_report.x = move_unit();
     else if (code == KC_MS_WH_UP)
+    {
         mouse_report.v = wheel_unit();
+	wheelDelayCounter = 1;
+    }
     else if (code == KC_MS_WH_DOWN)
+    {
         mouse_report.v = wheel_unit() * -1;
+	wheelDelayCounter = 1;
+    }
     else if (code == KC_MS_WH_LEFT)
+    {
         mouse_report.h = wheel_unit() * -1;
+	wheelDelayCounter = 1;
+    }
     else if (code == KC_MS_WH_RIGHT)
+    {
         mouse_report.h = wheel_unit();
+	wheelDelayCounter = 1;
+    }
     else if (code == KC_MS_BTN1)
         mouse_report.buttons |= MOUSE_BTN1;
     else if (code == KC_MS_BTN2)
